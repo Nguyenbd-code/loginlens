@@ -1,0 +1,57 @@
+[
+  {
+    "kind": "brute_force",
+    "src_ip": "203.0.113.45",
+    "users": [
+      "root"
+    ],
+    "start": "2026-10-12T01:03:35",
+    "end": "2026-10-12T01:06:47",
+    "attempts": 60,
+    "compromised_user": null
+  },
+  {
+    "kind": "password_spray",
+    "src_ip": "198.51.100.79",
+    "users": [
+      "alice",
+      "demo",
+      "dev",
+      "ftp",
+      "git",
+      "guest",
+      "hadoop",
+      "jenkins",
+      "leilani",
+      "mysql",
+      "nagios",
+      "noa",
+      "operator",
+      "oracle",
+      "pi",
+      "postgres",
+      "server",
+      "student",
+      "temp",
+      "test",
+      "ubuntu",
+      "user",
+      "web"
+    ],
+    "start": "2026-10-12T15:52:31",
+    "end": "2026-10-12T16:17:39",
+    "attempts": 23,
+    "compromised_user": null
+  },
+  {
+    "kind": "success_after_failures",
+    "src_ip": "203.0.113.135",
+    "users": [
+      "leilani"
+    ],
+    "start": "2026-10-12T21:59:50",
+    "end": "2026-10-12T22:02:23",
+    "attempts": 37,
+    "compromised_user": "leilani"
+  }
+]
