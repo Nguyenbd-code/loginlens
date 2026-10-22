@@ -21,26 +21,26 @@ loginlens summary sample/auth.log --year 2026
 Example output from the included sample log:
 
 ```
-Login attempts:   193
+Login attempts:   161
 Time range:       2026-10-12 00:05:05 to 2026-10-12 23:54:50
 Successful:       26
-Failed password:  135
-Invalid user:     32
+Failed:           135
+Unknown users:    32
 Source IPs:       20
 
 Top 5 IPs by failed attempts:
   203.0.113.45   60
-  198.51.100.79  43
   203.0.113.135  36
-  192.0.2.177    4
-  192.0.2.28     4
+  198.51.100.79  23
+  192.0.2.79     2
+  192.0.2.177    2
 
 Top 5 targeted usernames:
   root           64
   leilani        37
-  test           12
-  admin          8
-  ubuntu         8
+  test           6
+  admin          4
+  ubuntu         4
 ```
 
 The top three IPs are the attacks planted in the sample. The rest is ordinary scanner noise.

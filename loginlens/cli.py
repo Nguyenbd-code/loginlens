@@ -36,15 +36,17 @@ def summarize(events: list[AuthEvent], top: int = 5) -> str:
     if not events:
         return "No SSH login attempts found."
     outcomes = Counter(e.outcome for e in events)
-    failures = [e for e in events if e.is_failure]
+    # sshd logs "Invalid user X" and then "Failed password for invalid user X"
+    # for the same guess, so only count the Failed lines as attempts
+    failures = [e for e in events if e.outcome == FAILURE]
     first, last = min(e.timestamp for e in events), max(e.timestamp for e in events)
 
     rows = [
-        f"Login attempts:   {len(events)}",
+        f"Login attempts:   {outcomes[SUCCESS] + outcomes[FAILURE]}",
         f"Time range:       {first:%Y-%m-%d %H:%M:%S} to {last:%Y-%m-%d %H:%M:%S}",
         f"Successful:       {outcomes[SUCCESS]}",
-        f"Failed password:  {outcomes[FAILURE]}",
-        f"Invalid user:     {outcomes[INVALID_USER]}",
+        f"Failed:           {outcomes[FAILURE]}",
+        f"Unknown users:    {outcomes[INVALID_USER]}",
         f"Source IPs:       {len({e.src_ip for e in events})}",
     ]
     if failures:

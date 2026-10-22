@@ -37,5 +37,15 @@ def test_summary_top_ip_is_the_biggest_attacker():
     assert "192.0.2.9" not in text
 
 
+def test_summary_counts_invalid_user_guess_once():
+    lines = [
+        "Oct 19 04:01:00 web01 sshd[1]: Invalid user oracle from 198.51.100.7 port 4000",
+        "Oct 19 04:01:01 web01 sshd[1]: Failed password for invalid user oracle from 198.51.100.7 port 4000 ssh2",
+    ]
+    text = summarize(list(parse_lines(lines, default_year=2026)))
+    assert "Login attempts:   1" in text
+    assert "198.51.100.7  1" in text
+
+
 def test_summary_of_empty_log():
     assert summarize([]) == "No SSH login attempts found."
