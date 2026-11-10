@@ -49,3 +49,51 @@ def test_summary_counts_invalid_user_guess_once():
 
 def test_summary_of_empty_log():
     assert summarize([]) == "No SSH login attempts found."
+
+
+def test_detect_prints_alerts(tmp_path, capsys):
+    out = tmp_path / "auth.log"
+    main(["generate", "--out", str(out)])
+    capsys.readouterr()
+    assert main(["detect", str(out), "--year", "2026"]) == 0
+    text = capsys.readouterr().out
+    assert "[CRITICAL] success_after_failures" in text
+    assert "password_spray" in text
+
+
+def test_detect_json(tmp_path, capsys):
+    out = tmp_path / "auth.log"
+    main(["generate", "--out", str(out)])
+    capsys.readouterr()
+    main(["detect", str(out), "--year", "2026", "--json"])
+    alerts = json.loads(capsys.readouterr().out)
+    assert {a["rule"] for a in alerts} == {"brute_force", "password_spray", "success_after_failures"}
+
+
+def test_detect_clean_log(tmp_path, capsys):
+    log = tmp_path / "auth.log"
+    log.write_text("Oct 19 09:15:00 web01 sshd[2]: Accepted publickey for brandon from 10.0.0.5 port 2 ssh2\n")
+    main(["detect", str(log), "--year", "2026"])
+    assert capsys.readouterr().out.strip() == "No alerts."
+
+
+def test_evaluate_passes_on_generated_log(tmp_path, capsys):
+    out, truth = tmp_path / "auth.log", tmp_path / "truth.json"
+    main(["generate", "--out", str(out), "--truth", str(truth), "--seed", "9"])
+    capsys.readouterr()
+    assert main(["evaluate", str(out), str(truth), "--year", "2026"]) == 0
+    assert "Detected 3/3 planted attacks, 0 false positive(s)" in capsys.readouterr().out
+
+
+def test_evaluate_fails_when_attack_missed(tmp_path, capsys):
+    log, truth = tmp_path / "auth.log", tmp_path / "truth.json"
+    log.write_text("Oct 19 09:15:00 web01 sshd[2]: Accepted publickey for brandon from 10.0.0.5 port 2 ssh2\n")
+    truth.write_text('[{"kind": "brute_force", "src_ip": "203.0.113.5"}]')
+    assert main(["evaluate", str(log), str(truth), "--year", "2026"]) == 2
+    assert "[MISSED]" in capsys.readouterr().out
+
+
+def test_evaluate_missing_truth_file(tmp_path, capsys):
+    log = tmp_path / "auth.log"
+    log.write_text("")
+    assert main(["evaluate", str(log), str(tmp_path / "nope.json")]) == 1

@@ -2,11 +2,14 @@
 
     loginlens generate --out sample/auth.log --truth sample/truth.json
     loginlens summary sample/auth.log
+    loginlens detect sample/auth.log
+    loginlens evaluate sample/auth.log sample/truth.json
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections import Counter
 from datetime import datetime
@@ -14,6 +17,8 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from . import __version__
+from .detect import Alert, detect
+from .evaluate import evaluate, load_truth, report
 from .generate import generate
 from .parser import FAILURE, INVALID_USER, SUCCESS, AuthEvent, parse_file
 
@@ -60,14 +65,55 @@ def summarize(events: list[AuthEvent], top: int = 5) -> str:
     return "\n".join(rows)
 
 
-def _cmd_summary(args: argparse.Namespace) -> int:
-    path = Path(args.logfile)
+def _load_events(path_str: str, year: Optional[int]) -> Optional[list[AuthEvent]]:
+    path = Path(path_str)
     if not path.is_file():
         print(f"loginlens: no such file: {path}", file=sys.stderr)
+        return None
+    return parse_file(str(path), default_year=year)
+
+
+def _cmd_summary(args: argparse.Namespace) -> int:
+    events = _load_events(args.logfile, args.year)
+    if events is None:
         return 1
-    events = parse_file(str(path), default_year=args.year)
     print(summarize(events, top=args.top))
     return 0
+
+
+def format_alerts(alerts: list[Alert]) -> str:
+    if not alerts:
+        return "No alerts."
+    rows = [f"{len(alerts)} alert(s)", ""]
+    for a in alerts:
+        users = ", ".join(a.users[:3]) + (f" +{len(a.users) - 3} more" if len(a.users) > 3 else "")
+        rows.append(f"[{a.severity.upper():<8}] {a.rule:<24} {a.src_ip:<16} {a.start:%Y-%m-%d %H:%M:%S}")
+        rows.append(f"           {a.summary}  (accounts: {users})")
+    return "\n".join(rows)
+
+
+def _cmd_detect(args: argparse.Namespace) -> int:
+    events = _load_events(args.logfile, args.year)
+    if events is None:
+        return 1
+    alerts = detect(events)
+    if args.json:
+        print(json.dumps([a.to_dict() for a in alerts], indent=2))
+    else:
+        print(format_alerts(alerts))
+    return 0
+
+
+def _cmd_evaluate(args: argparse.Namespace) -> int:
+    events = _load_events(args.logfile, args.year)
+    if events is None:
+        return 1
+    if not Path(args.truth).is_file():
+        print(f"loginlens: no such file: {args.truth}", file=sys.stderr)
+        return 1
+    result = evaluate(detect(events), load_truth(args.truth))
+    print(report(result))
+    return 0 if result.passed else 2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -89,6 +135,20 @@ def build_parser() -> argparse.ArgumentParser:
                       help="year for timestamps that don't include one (default: this year)")
     summ.add_argument("--top", type=int, default=5, help="how many IPs and usernames to list (default: %(default)s)")
     summ.set_defaults(func=_cmd_summary)
+
+    det = sub.add_parser("detect", help="find brute force, password spraying and break-ins")
+    det.add_argument("logfile", help="path to an auth.log file")
+    det.add_argument("--year", type=int, default=None,
+                     help="year for timestamps that don't include one (default: this year)")
+    det.add_argument("--json", action="store_true", help="print alerts as JSON")
+    det.set_defaults(func=_cmd_detect)
+
+    ev = sub.add_parser("evaluate", help="check detection against a ground truth file")
+    ev.add_argument("logfile", help="path to an auth.log file")
+    ev.add_argument("truth", help="ground truth JSON from `loginlens generate --truth`")
+    ev.add_argument("--year", type=int, default=None,
+                    help="year for timestamps that don't include one (default: this year)")
+    ev.set_defaults(func=_cmd_evaluate)
     return parser
 
 
