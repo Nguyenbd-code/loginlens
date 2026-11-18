@@ -4,6 +4,7 @@
     loginlens summary sample/auth.log
     loginlens detect sample/auth.log
     loginlens evaluate sample/auth.log sample/truth.json
+    loginlens report sample/auth.log --out report.html
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from .detect import Alert, detect
 from .evaluate import evaluate, load_truth, report
 from .generate import generate
 from .parser import FAILURE, INVALID_USER, SUCCESS, AuthEvent, parse_file
+from .report import build_report
 
 
 def _cmd_generate(args: argparse.Namespace) -> int:
@@ -116,6 +118,18 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     return 0 if result.passed else 2
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    events = _load_events(args.logfile, args.year)
+    if events is None:
+        return 1
+    alerts = detect(events)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(build_report(events, alerts, source=Path(args.logfile).name, title=args.title), encoding="utf-8")
+    print(f"Wrote report to {out} ({len(events)} events, {len(alerts)} alert(s))")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="loginlens", description="Find attacks hiding in Linux SSH login logs.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -149,6 +163,14 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--year", type=int, default=None,
                     help="year for timestamps that don't include one (default: this year)")
     ev.set_defaults(func=_cmd_evaluate)
+
+    rep = sub.add_parser("report", help="write an HTML report with a timeline of attacks")
+    rep.add_argument("logfile", help="path to an auth.log file")
+    rep.add_argument("--out", default="loginlens-report.html", help="where to write the report (default: %(default)s)")
+    rep.add_argument("--title", default="LoginLens report", help="page title (default: %(default)s)")
+    rep.add_argument("--year", type=int, default=None,
+                     help="year for timestamps that don't include one (default: this year)")
+    rep.set_defaults(func=_cmd_report)
     return parser
 
 

@@ -97,3 +97,19 @@ def test_evaluate_missing_truth_file(tmp_path, capsys):
     log = tmp_path / "auth.log"
     log.write_text("")
     assert main(["evaluate", str(log), str(tmp_path / "nope.json")]) == 1
+
+
+def test_report_writes_html(tmp_path, capsys):
+    log, out = tmp_path / "auth.log", tmp_path / "out" / "report.html"
+    main(["generate", "--out", str(log)])
+    capsys.readouterr()
+    assert main(["report", str(log), "--out", str(out), "--year", "2026", "--title", "web01 logins"]) == 0
+    page = out.read_text()
+    assert "<title>web01 logins</title>" in page
+    assert "success after failures" in page
+    assert "Wrote report to" in capsys.readouterr().out
+
+
+def test_report_missing_file(tmp_path, capsys):
+    assert main(["report", str(tmp_path / "nope.log")]) == 1
+    assert "no such file" in capsys.readouterr().err
