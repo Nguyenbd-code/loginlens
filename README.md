@@ -4,7 +4,9 @@ Find brute-force and password-spraying attacks in Linux SSH login logs.
 
 Every Linux server that's reachable from the internet gets SSH login attempts from strangers all day. Most of it is harmless background noise, but some of it is a real attack: someone guessing one account's password over and over, or trying a few common passwords across every account they can think of. LoginLens reads the server's login log (`/var/log/auth.log`), turns each line into a structured event, and pulls out the activity worth looking at.
 
-> **Status:** in progress. Parsing, detection and evaluation work; a web dashboard is next (see [Roadmap](#roadmap)).
+> **Status:** in progress. Parsing, detection, evaluation and the HTML report work; MITRE ATT&CK mapping is next (see [Roadmap](#roadmap)).
+
+![LoginLens report showing a timeline of failed logins with three attacks highlighted](docs/report-screenshot.png)
 
 ## Quick start
 
@@ -16,6 +18,7 @@ cd loginlens
 pip install -e ".[dev]"
 
 loginlens detect sample/auth.log --year 2026
+loginlens report sample/auth.log --year 2026 --out report.html   # open report.html in a browser
 ```
 
 Output on the included sample log:
@@ -127,13 +130,19 @@ Detected 3/3 planted attacks, 0 false positive(s)
 
 It exits with code 2 if anything is missed or falsely flagged, so it can run in CI.
 
+**5. Report** ([`loginlens/report.py`](loginlens/report.py))
+
+`report` writes one self-contained HTML page: summary counts, a timeline of failed logins in 15-minute slots with each attack drawn as a band over it, the alerts table, and the top IPs by failed attempts. There's no JavaScript and nothing loaded from outside, so it opens anywhere and can be hosted as a static page. See [`sample/report.html`](sample/report.html).
+
+Usernames in an SSH log are whatever the attacker typed, so they can contain HTML. Every value from the log is escaped before it goes into the page, and a test feeds in a `<script>` username to make sure it comes out as plain text.
+
 ## Running the tests
 
 ```bash
 pytest
 ```
 
-The tests cover each log format the parser understands and the lines it should ignore, each detection rule's thresholds and edge cases (typos, slow attacks, timezones), and an end-to-end check that detection finds every planted attack with no false alarms across 25 different generated logs.
+The tests cover each log format the parser understands and the lines it should ignore, each detection rule's thresholds and edge cases (typos, slow attacks, timezones), an end-to-end check that detection finds every planted attack with no false alarms across 25 different generated logs, and the report (including escaping of hostile usernames).
 
 ## Roadmap
 
@@ -142,5 +151,5 @@ The tests cover each log format the parser understands and the lines it should i
 - [x] `summary` command
 - [x] Detection rules: brute force, password spraying, success after failures
 - [x] `evaluate` command to grade detection against ground truth
-- [ ] Web dashboard with a timeline of attacks
+- [x] HTML report with a timeline of attacks
 - [ ] Map findings to MITRE ATT&CK techniques
